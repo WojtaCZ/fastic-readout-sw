@@ -184,7 +184,7 @@ def errorCorrect(input_data, index):
 
 
 def main():
-    input_file = "testdata_v1.bin"
+    input_file = "capture_after_fix.bin"
 
     if not os.path.exists(input_file):
         print(f"Error: {input_file} does not exist.")
@@ -225,7 +225,7 @@ def main():
 
         if not isinstance(block, idleBlock):
            
-            #if(isinstance(block, userKBlock) and block.btf == b'\xd2'):
+            if(isinstance(block, userKBlock) and block.btf == b'\xd2'):
                 #print("Index:", i, end=" ")
                 #packetCount = block.data[54-47:54-24]
                 #coarseCouner = block.data[54-24:54]

@@ -6,6 +6,7 @@ from enum import Enum
 import struct
 from time import perf_counter
 import datetime
+import pickle
 
 
 class BlockType(Enum):
@@ -344,15 +345,13 @@ def parseFile(file, skipControl = False, skipBTFs = []):
     return packetDatabase
 
 
-data = parseFile("bulk_data_msb_scrambled_2.bin", True, [b'\x78', b'\xd2'])
+data = parseFile("calpulse.bin", False, [b'\x78'])
+
+with open('calpulse', 'wb') as f:
+    pickle.dump(data, f)
+    
 for d in data:
     print(d)
 
-
-
-#[USERK] BTF: b'U' Data: 0x00000001914f2f
-#0x01cb5868001eb97d
-#[USERK] BTF: b'\x99' Data: 0x00000001a5997f
-#
 
 

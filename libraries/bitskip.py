@@ -7,7 +7,7 @@ import struct
 from time import perf_counter
 import datetime
 
-file = "bitskip_testdata_1024_fixedBuff.bin"
+file = "bitskip_testdata_after_fix.bin"
 
 if not os.path.exists(file):
     print(f"Error: {file} does not exist.")

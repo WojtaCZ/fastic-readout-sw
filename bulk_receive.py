@@ -22,8 +22,8 @@ def format_bytes(size):
 VENDOR_ID = 0xcafe  # Replace with your device's vendor ID
 PRODUCT_ID = 0x4000  # Replace with your device's product ID
 ENDPOINT = 0x83  # Endpoint address for bulk transfer (IN endpoint 3)
-BUFFER_FILE = "bitskip_testdata_1024_fixedBuff.bin"  # File to store received binary data
-CHUNK_SIZE = 4096*4  # Size of each bulk transfer in bytes
+BUFFER_FILE = "calpulse.bin"  # File to store received binary data
+CHUNK_SIZE = 1024*4  # Size of each bulk transfer in bytes
 MULTIPLES = 512
 
 
