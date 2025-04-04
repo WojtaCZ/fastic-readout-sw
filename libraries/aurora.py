@@ -16,7 +16,7 @@ class BlockType(Enum):
 
 class separatorBlock:
     def __init__(self, descrambledData):
-        self.validOctets = int(descrambledData[8:16])
+        self.validOctets = descrambledData[8:16].uint
         self.data = descrambledData[(64 - self.validOctets*8):64]
 
     def __str__(self):
@@ -101,9 +101,9 @@ def __getDescrambledBlockData(input_data, block_index):
 
 def __parseControlBlock(descrambled_block_data):
     btf = descrambled_block_data[0:8]
-    if btf == b'\xe1':
+    if btf == b'\x1e':
         return separatorBlock(descrambled_block_data)
-    elif btf == b'\x1e':
+    elif btf == b'\xe1':
         return separator7Block(descrambled_block_data)
     elif btf == b'\x78':
         return idleBlock(descrambled_block_data)
@@ -345,9 +345,9 @@ def parseFile(file, skipControl = False, skipBTFs = []):
     return packetDatabase
 
 
-data = parseFile("calpulse.bin", False, [b'\x78'])
+data = parseFile("calpulse2.bin", False, [b'\x78'])
 
-with open('calpulse', 'wb') as f:
+with open('calpulse2', 'wb') as f:
     pickle.dump(data, f)
     
 for d in data:

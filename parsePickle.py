@@ -53,17 +53,42 @@ class dataBlock:
 
 
 objects = []
-with (open("calpulse", "rb")) as openfile:
+with (open("calpulse2", "rb")) as openfile:
     while True:
         try:
             objects.append(pickle.load(openfile))
         except EOFError:
             break
         
-for obj in objects[0]:
+i = 0
+
+
+
+for idx,obj in enumerate(objects[0]):
     if isinstance(obj, userKBlock) and obj.btf == b'\xD2':
         reset = (obj.data[55])
         sent = obj.data[-48:-25].uint
         coarse = obj.data[-25:-1].uint
         
         print(sent, coarse, reset)
+        
+    if isinstance(obj, dataBlock):
+        #channel = obj.data[0:4].uint
+        #detType = obj.data[4:6]
+        #timestamp = obj.data[6:28].uint
+        #pw = obj.data[28:42].uint
+        
+        #print(channel, detType, timestamp, pw)
+        print(obj)
+        i += 1
+    
+    if isinstance(obj, separator7Block):
+        print(obj)
+        i += 1
+        
+    if isinstance(obj, separatorBlock):
+        print(obj)
+        i += 1
+        
+    if i > 2:
+        break
