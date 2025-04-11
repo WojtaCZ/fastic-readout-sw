@@ -21,8 +21,8 @@ def format_bytes(size):
 # USB device configuration
 VENDOR_ID = 0xcafe  # Replace with your device's vendor ID
 PRODUCT_ID = 0x4000  # Replace with your device's product ID
-ENDPOINT = 0x83  # Endpoint address for bulk transfer (IN endpoint 3)
-BUFFER_FILE = "calpulse2.bin"  # File to store received binary data
+ENDPOINT = 0x84  # Endpoint address for bulk transfer (IN endpoint 3)
+BUFFER_FILE = "fic2_capture_w_injection_500us.bin"  # File to store received binary data
 CHUNK_SIZE = 1024*4  # Size of each bulk transfer in bytes
 MULTIPLES = 512
 
@@ -49,13 +49,7 @@ def main():
             while True:
                 len = dev.read(ENDPOINT, data, timeout=10000)
                 if len != 0:
-                    frameNew = struct.unpack('I', data[0:4])[0]
-                    if frameNew == frameOld + 1:
-                        frameOld = frameNew
-                    else:
-                        print("Frame skip", frameOld, frameNew)
-                        frameOld = frameNew
-
+                    print(f"Received {len} bytes")
                     # Write the received data to the file
                     buffer_file.write(data[:len])
 
