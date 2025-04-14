@@ -2,8 +2,15 @@ import pickle
 import bitstring
 from bitstring import BitArray
 from blocktypes import separatorBlock, separator7Block, idleBlock, userKBlock, dataBlock
+import math
 
-def parse_channels_data(hex_string):
+tsConv = (1/40000000)/1024
+pwConv = (1/40000000)/64
+
+lastTimestamp = 0
+
+def parse_channels_data(hex_string, coarse):
+    global lastTimestamp
     # Configurable constants (match these to your design)
     FP_TIMESTAMP_BITS = 22
     FP_PULSE_WIDTH_BITS = 14
@@ -67,15 +74,26 @@ def parse_channels_data(hex_string):
 
         fields['timestamp'] = int(fields['timestamp'], 2)
         fields['pulse_width'] = int(fields['pulse_width'], 2)
-
+        
+        
+        
+        #print(coarse*25 / 1000)
+        timestampS = math.floor((fields['timestamp'] * tsConv) + 25 * coarse / 1000000000)
+        timestampMs = math.floor((fields['timestamp'] * tsConv * 1000) + 25 * coarse / 1000000) - timestampS * 1000
+        timestampUs = math.floor((fields['timestamp'] * tsConv * 1000000) + 25 * coarse / 1000) - timestampMs * 1000 - timestampS * 1000000
+        timestampNs = math.floor((fields['timestamp'] * tsConv * 1000000000) + 25 * coarse) - timestampUs * 1000 - timestampMs * 1000000 - timestampS * 1000000000
+        timestampPs = math.floor((fields['timestamp'] * tsConv * 1000000000000) + 25 * coarse * 1000) - timestampNs * 1000 - timestampUs * 1000000 - timestampMs * 1000000000 - timestampS * 1000000000000
+        
+        tsps = ((fields['timestamp'] * tsConv * 1000000000000) + 25 * coarse * 1000)
+        
         print(f"  --- Packet {i+1} ---")
         print(f"  Channel: {int(fields['channel'], 2)}")
         #print(f"  Locked: {bool(int(fields['locked'], 2))}")
         print(f"  Packet Type: {pkt_type_map[fields['pkt_type']]}")
-        print(f"  Timestamp: {fields['timestamp']}")
-        #print(f"     Coarse    (25ns): {fields['timestamp'] >> 10}")
-        #print(f"     Fine     (781ps): {(fields['timestamp'] >> 5) % (1<<5)}")
-        #print(f"     Ultrafine (25ps): {fields['timestamp'] % (1<<5)}")
+        print(f"  Timestamp: {(fields['timestamp']) }")
+        #print(f"   Coarse    (25ns): {fields['timestamp'] >> 10}")
+        #print(f"   Fine     (781ps): {(fields['timestamp'] >> 5) % (1<<5)}")
+        #print(f"   Ultrafine (25ps): {fields['timestamp'] % (1<<5)}")
         print(f"  Pulse Width: {fields['pulse_width']}")
         #print(f"     Coarse    (25ns): {fields['pulse_width'] >> 5}")
         #print(f"     Fine     (781ps): {fields['pulse_width'] % (1<<5)}")
@@ -86,6 +104,8 @@ def parse_channels_data(hex_string):
         print(f"  Parity pulse_width: {fields['parity_pulse_width']} ({pulse_width_parity_check})")
         print(f"  Parity parity: {fields['parity_parity']} ({parity_parity_check})")
         print()
+        
+        lastTimestamp = tsps
         
 def parse_statistics_data(data):
     fifoDrop = data[0:20].uint
@@ -122,10 +142,13 @@ dataArray = bitstring.BitArray()
 dataCounter = 0
 hasPreviousData = False
 
+coarseCounter = 0
+
+
 
 # Load the parsed pickle file
 objects = []
-with (open("fic1_capture_w_injection_50us", "rb")) as openfile:
+with (open("testcapture", "rb")) as openfile:
     while True:
         try:
             objects.append(pickle.load(openfile))
@@ -140,10 +163,15 @@ for idx,obj in enumerate(objects[0]):
     # PARSE THE COARSE COUNTER
     if isinstance(obj, userKBlock) and obj.btf == b'\xD2':
         parse_coarse_counter(obj.data)
-        reset = (not obj.data[55])
-        sent = obj.data[-48:-25].uint
-        coarse = obj.data[-25:-1].uint
-        print(sent)
+        sent = obj.data[8:31].uint
+        coarse = obj.data[31:55-12].uint
+        reset = (obj.data[55])
+
+        
+        if(not reset):
+            coarseCounter = coarse
+        else:
+            coarseCounter = coarseCounter + coarse
         
 
     
@@ -175,13 +203,13 @@ for idx,obj in enumerate(objects[0]):
     # If we received data previously but now, the block is a control, parse the data
     if hasPreviousData == True and not isinstance(obj, dataBlock) and not isinstance(obj, separatorBlock) and not isinstance(obj, separator7Block):
         hasPreviousData = False
-        print("Received data block size:", len(dataArray), "bits")
-        print("Hex data:", dataArray.hex)
-        parse_channels_data(dataArray.hex)
+        #print("Received data block size:", len(dataArray), "bits")
+        #print("Hex data:", dataArray.hex)
+        parse_channels_data(dataArray.hex, coarseCounter)
         dataArray = bitstring.BitArray()
         dataCounter += 1
     
     # Just for debuggint to limit the packet count being parsed
-    if dataCounter > 5000:
+    if dataCounter > 50:
         break
     
