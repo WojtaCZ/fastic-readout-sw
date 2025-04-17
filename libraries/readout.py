@@ -227,7 +227,18 @@ def bulkReceive(fastic, duration, filename):
     else:
         ENDPOINT = 0x84
         
+    setFasticAurora(fastic, False)
+    
+    tmp = usb.util.create_buffer(4096)
+            
+    # Read any old data that we dont care about and trash it
+    while True:
+        try:
+            dev.read(ENDPOINT, tmp, timeout=1)
+        except usb.core.USBError as e:
+            break
         
+
     with open(filename, "wb") as buffer_file:
         print(f"Receiving data and writing to {filename}...")
         try:
@@ -235,21 +246,31 @@ def bulkReceive(fastic, duration, filename):
             data = usb.util.create_buffer(4096)
             
             timeStart = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+            totalBytes = 0
 
+            setFasticAurora(fastic, True)
+            
             while time.clock_gettime_ns(time.CLOCK_MONOTONIC) - timeStart < (duration*1000000):
                 len = dev.read(ENDPOINT, data, timeout=1000)
                 if len != 0:
-                    print(f"Received {len} bytes")
+                    totalBytes = totalBytes + len
                     # Write the received data to the file
                     buffer_file.write(data[:len])
 
+            setFasticAurora(fastic, False)
+            print(f"Received {totalBytes/1000} kB of data")
+
         except usb.core.USBError as e:
+            setFasticAurora(fastic, False)
+            
             if e.errno == 110:  # Timeout error
                 print("Timeout reached, stopping data reception.")
             else:
                 print(f"USB Error: {e}")
         except KeyboardInterrupt:
+            setFasticAurora(fastic, False)
             print("Interrupted by user, stopping data reception.")
+    
 
         
 

@@ -4,13 +4,17 @@ from bitstring import BitArray
 from blocktypes import separatorBlock, separator7Block, idleBlock, userKBlock, dataBlock
 import math
 
-tsConv = (1/40000000)/1024
-pwConv = (1/40000000)/64
+coarseConv = (1/40000000)
+fineConv = (1/40000000)/64
+extraFineConv = (1/40000000)/1024
 
+lastCoarse = 0
+coarseCounter = 0
 lastTimestamp = 0
 
 def parse_channels_data(hex_string, coarse):
     global lastTimestamp
+    global coarseCounter
     # Configurable constants (match these to your design)
     FP_TIMESTAMP_BITS = 22
     FP_PULSE_WIDTH_BITS = 14
@@ -70,31 +74,26 @@ def parse_channels_data(hex_string, coarse):
         pkt_type_parity_check = 'OK' if ((fields['pkt_type'].count('1') % 2) == int(fields['parity_pkt_type'])) else 'FAIL'
         timestamp_parity_check = 'OK' if ((fields['timestamp'].count('1') % 2) == int(fields['parity_timestamp'])) else 'FAIL'
         pulse_width_parity_check = 'OK' if ((fields['pulse_width'].count('1') % 2) == int(fields['parity_pulse_width'])) else 'FAIL'
-        parity_parity_check = 'OK' if (((int(fields['parity_pkt_type']) + int(fields['parity_timestamp']) + int(fields['parity_pulse_width'])) % 2) == int(fields['parity_parity'])) else 'FAIL'
+        parity_parity_check = 'OK' if (((int(fields['parity_channel']) + int(fields['parity_pkt_type']) + int(fields['parity_timestamp']) + int(fields['parity_pulse_width'])) % 2) == int(fields['parity_parity'])) else 'FAIL'
 
         fields['timestamp'] = int(fields['timestamp'], 2)
         fields['pulse_width'] = int(fields['pulse_width'], 2)
         
         
-        
-        #print(coarse*25 / 1000)
-        timestampS = math.floor((fields['timestamp'] * tsConv) + 25 * coarse / 1000000000)
-        timestampMs = math.floor((fields['timestamp'] * tsConv * 1000) + 25 * coarse / 1000000) - timestampS * 1000
-        timestampUs = math.floor((fields['timestamp'] * tsConv * 1000000) + 25 * coarse / 1000) - timestampMs * 1000 - timestampS * 1000000
-        timestampNs = math.floor((fields['timestamp'] * tsConv * 1000000000) + 25 * coarse) - timestampUs * 1000 - timestampMs * 1000000 - timestampS * 1000000000
-        timestampPs = math.floor((fields['timestamp'] * tsConv * 1000000000000) + 25 * coarse * 1000) - timestampNs * 1000 - timestampUs * 1000000 - timestampMs * 1000000000 - timestampS * 1000000000000
-        
-        tsps = ((fields['timestamp'] * tsConv * 1000000000000) + 25 * coarse * 1000)
+       
         
         print(f"  --- Packet {i+1} ---")
         print(f"  Channel: {int(fields['channel'], 2)}")
         #print(f"  Locked: {bool(int(fields['locked'], 2))}")
         print(f"  Packet Type: {pkt_type_map[fields['pkt_type']]}")
-        print(f"  Timestamp: {(fields['timestamp']) }")
-        #print(f"   Coarse    (25ns): {fields['timestamp'] >> 10}")
+        print(f"  Timestamp relative: {(fields['timestamp']) }")
+        print(f"  Timestamp absolute: {(coarseCounter*coarseConv + (fields['timestamp'] * extraFineConv))*1000000000} ns")
+        print(f"  Timestamp absolute: {(coarseCounter*coarseConv + (fields['timestamp'] * extraFineConv))*1000000} us")
         #print(f"   Fine     (781ps): {(fields['timestamp'] >> 5) % (1<<5)}")
         #print(f"   Ultrafine (25ps): {fields['timestamp'] % (1<<5)}")
         print(f"  Pulse Width: {fields['pulse_width']}")
+        print(f"     Nanoseconds: {fields['pulse_width'] * fineConv * 1000000000} ns")
+
         #print(f"     Coarse    (25ns): {fields['pulse_width'] >> 5}")
         #print(f"     Fine     (781ps): {fields['pulse_width'] % (1<<5)}")
         print(f"  Debug: {bool(int(fields['debug'], 2))}")
@@ -105,7 +104,7 @@ def parse_channels_data(hex_string, coarse):
         print(f"  Parity parity: {fields['parity_parity']} ({parity_parity_check})")
         print()
         
-        lastTimestamp = tsps
+      #  lastTimestamp = tsps
         
 def parse_statistics_data(data):
     fifoDrop = data[0:20].uint
@@ -123,15 +122,27 @@ def parse_statistics_data(data):
     print()
     
 def parse_coarse_counter(data):
+    global lastCoarse
+    global coarseCounter
     sent = data[8:31].uint
     coarse = data[31:55].uint
     reset = (data[55])
     
+    if(not reset):
+        coarseCounter = coarse
+    else:
+        coarseCounter = coarseCounter + coarse
+    
     print(f"--- Coarse counter ---")
     print(f"Sent packets: {int(sent)}")
     print(f"Coarse counter: {int(coarse)}")
+    print(f"   Nanoseconds: {int(coarse)*25} ns")
+    print(f"   Delta from last: {int(coarse)*25 - lastCoarse} ns")
+    print(f"   Overall counter: {int(coarseCounter)*25} ns")
     print(f"Was reset? - {reset}")
     print()
+    
+    lastCoarse = (int(coarse)*25)
     
     
     
@@ -142,7 +153,7 @@ dataArray = bitstring.BitArray()
 dataCounter = 0
 hasPreviousData = False
 
-coarseCounter = 0
+
 
 
 
@@ -163,15 +174,7 @@ for idx,obj in enumerate(objects[0]):
     # PARSE THE COARSE COUNTER
     if isinstance(obj, userKBlock) and obj.btf == b'\xD2':
         parse_coarse_counter(obj.data)
-        sent = obj.data[8:31].uint
-        coarse = obj.data[31:55-12].uint
-        reset = (obj.data[55])
-
         
-        if(not reset):
-            coarseCounter = coarse
-        else:
-            coarseCounter = coarseCounter + coarse
         
 
     
@@ -189,15 +192,16 @@ for idx,obj in enumerate(objects[0]):
     # PARSE THE DATA BLOCKS
     # Just append to the array
     if isinstance(obj, dataBlock):
-        dataArray.append(obj.data)
+        dataArray = obj.data + dataArray
+        #dataArray.append(obj.data)
         hasPreviousData = True
     
     if isinstance(obj, separator7Block):
-        dataArray.append(obj.data)
+        dataArray = obj.data + dataArray
         hasPreviousData = True
         
     if isinstance(obj, separatorBlock):
-        dataArray.append(obj.data)
+        dataArray = obj.data + dataArray
         hasPreviousData = True
         
     # If we received data previously but now, the block is a control, parse the data

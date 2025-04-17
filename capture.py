@@ -3,8 +3,53 @@ from libraries import bitstream
 import pickle 
 
 import time
+import math
 from multiprocessing import Process
 
+fastic = 2
+
+def calibrateTimeTreshold():
+    
+    histogram = [0] * int(math.pow(2, 6+6))
+    for msbTreshold in range(0, int(math.pow(2, 6))):
+        msb = 0x80 | msbTreshold & 0x3F
+        for lsbTreshold in range(0, int(math.pow(2, 6))):
+            lsb = lsbTreshold & 0x3F
+            print(hex(msb & 0x7F), hex(lsb & 0x7F))
+            readout.setFasticRegister(1, 0x27, msbTreshold)
+            readout.setFasticRegister(1, 0x2A, lsbTreshold)
+            for i in range(0, 20):
+                histogram[(msbTreshold << 6) + lsbTreshold] = histogram[(msbTreshold << 6) + lsbTreshold] + readout.getFasticTime(1)
+                
+    import matplotlib.pyplot as plt
+
+    # Plot the histogram
+    plt.bar(range(len(histogram)), histogram, color='blue')
+    plt.title("Histogram of Time Thresholds")
+    plt.xlabel("Threshold")
+    plt.ylabel("Count")
+    plt.show()
+    
+
+def calibrateTreshold():
+    
+    histogram = [0] * int(math.pow(2, 6))
+    for treshold in range(0, int(math.pow(2, 6))):
+        readout.setFasticRegister(1, 0x33, treshold)
+        time.sleep(0.01)
+        for i in range(0, 20):
+            histogram[treshold] = histogram[treshold] + readout.getFasticTime(1)
+            time.sleep(0.0001)
+                
+    import matplotlib.pyplot as plt
+
+    # Plot the histogram
+    plt.bar(range(len(histogram)), histogram, color='blue')
+    plt.title("Histogram of Time Thresholds")
+    plt.xlabel("Threshold")
+    plt.ylabel("Count")
+    plt.show()
+    
 try:
     readout.init()
 except Exception as e:
@@ -21,42 +66,32 @@ print(f"   FastIC+ 1: {(fastic1_rev & 0xf0) >> 4}.{fastic1_rev & 0x0f}")
 print(f"   FastIC+ 2: {(fastic2_rev & 0xf0) >> 4}.{fastic2_rev & 0x0f}")
 print()
 
-# Enable only channel 0 in single ended mode
-readout.setFasticRegister(1, 0x01, 0x01)
-# Enable injection pulse routing to channel 0
-readout.setFasticRegister(1, 0x01, 0x01)
 
+# Enable single ended positive polarity mode
+readout.setFasticRegister(fastic, 0x00, 0x11)
+# Enable only channel 0 in single ended mode
+readout.setFasticRegister(fastic, 0x01, 0x01)
+# Enable injection pulse routing to channel 0
+readout.setFasticRegister(fastic, 0x02, 0x01)
 
 print("Seting comparator tresholds")
 
-# Set the comparator tresholds 
-readout.setFasticRegister(1, 0x26, 0x81)
-readout.setFasticRegister(1, 0x28, 25)
-
-readout.setFasticRegister(1, 0x27, 0x81)
-readout.setFasticRegister(1, 0x29, 25)
-
+#calibrateTimeTreshold()
+readout.setFasticRegister(fastic, 0x26, 0xFF)
+readout.setFasticRegister(fastic, 0x27, 0xFF)
 print("Enabling injection")
 
 # Enable the injection pulse
-readout.setFasticCalPulse(1, True)
+readout.setFasticCalPulse(fastic, True)
 
-#readout.bulkReceive(1, 1000, "testcapture.bin")
-# Start the receive thread
 
-#readout.bulkReceive(1, 10, "testcapture.bin")
-receive_thread = Process(target=readout.bulkReceive, args=(1, 100, "testcapture.bin"))
-receive_thread.start()
-time.sleep(1)
-readout.setFasticAurora(1, True)
-# Enable the aurora stream
-#while not receive_thread.is_alive():
-    #time.sleep(0.000001)
-time.sleep(1)
-# time.sleep(1)
-readout.setFasticAurora(1, False)
 
-receive_thread.join()
+readout.bulkReceive(fastic, 100, "testcapture.bin")
+
+
+readout.setFasticCalPulse(fastic, False)
+
+
 
 
 
