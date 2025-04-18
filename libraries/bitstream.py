@@ -7,7 +7,7 @@ import struct
 from time import perf_counter
 import datetime
 import pickle
-from blocktypes import separatorBlock, separator7Block, idleBlock, userKBlock, dataBlock
+from libraries.blocktypes import separatorBlock, separator7Block, idleBlock, userKBlock, dataBlock
 
 class BlockType(Enum):
     CONTROL = b'\x80'
@@ -105,22 +105,23 @@ def getPacketCount(input_data):
     return len(input_data) // 66
 
 
+def parseBitstream(inputFile, outputFile, skipControl = False, skipBTFs = []):
 
-
-def parseFile(file, skipControl = False, skipBTFs = []):
-
-    if not os.path.exists(file):
-        print(f"Error: {file} does not exist.")
+    inputFile = inputFile + ".bin"
+    outputFile = outputFile + ".aurora"
+    
+    if not os.path.exists(inputFile):
+        print(f"Error: {inputFile} does not exist.")
         return
 
     # Read the scrambled data
-    with open(file, "rb") as f:
+    with open(inputFile, "rb") as f:
         rawData = f.read()
 
     # Create a bitarray out of the raw data
     rawData = bitstring.BitArray(bytes=rawData)
 
-    print("Loaded data size is", round(len(rawData)/8/1024/1024, 2), "MB")
+    print("Loaded data size is", round(len(rawData)/8/1024, 2), "kB")
     print("Approximately", len(rawData)//66, "packets")
 
     # Find the bitslip of the stream
@@ -145,9 +146,11 @@ def parseFile(file, skipControl = False, skipBTFs = []):
             t_stop = perf_counter()
 
             estimatedSeconds = round(((t_stop - t_start) * (getPacketCount(rawData) - blockIndex))/(getPacketCount(rawData) // 100), 2)
-        
-            print("Progress:", round(blockIndex / getPacketCount(rawData) * 100, 1), "%. Estimated time remaining: ", datetime.timedelta(seconds=estimatedSeconds))
-
+            percentage = round(blockIndex / getPacketCount(rawData) * 100, 1)
+            if percentage > 1:
+                print("Progress:", percentage, "%. Estimated time remaining (hh:mm::ss): ", str(datetime.timedelta(seconds=estimatedSeconds)).split(".")[0])
+            else:
+                print("Progress:", percentage, "%. Estimated time remaining (hh:mm::ss): --:--:--")
             t_start = perf_counter()
         
         # Get the block type
@@ -187,8 +190,9 @@ def parseFile(file, skipControl = False, skipBTFs = []):
             print("Incorrect block data at packet index", blockIndex)
             break
            
-
-    return packetDatabase
+    print("Saving parsed data to", outputFile)
+    with open(outputFile, 'wb') as f:
+        pickle.dump(packetDatabase, f)
 
 
 

@@ -9,7 +9,7 @@ import csv
 fasticNumber = 1
 
 # Filename to be saved
-FILENAME = "capture"
+FILENAME = "injection"
 
 # Connect to the readout system
 try:
@@ -30,36 +30,17 @@ print()
 readout.setFasticRegister(fasticNumber, 0x00, 0x11)
 # Enable only channel 0 in single ended mode
 readout.setFasticRegister(fasticNumber, 0x01, 0x01)
+# Enable injection pulse routing to channel 0
+readout.setFasticRegister(fasticNumber, 0x02, 0x01)
 
-###
-### ADD other configuration for the fastic registers
-###
-
-shortID, UID = readout.getUserboardUID()
-
-if(shortID == 0x00):
-    print(f"The userboard is not connected.")
-    exit(1)
-
-# Set the bias voltage to 45V
-readout.setHvVoltage(45)
-readout.setHvEnabled(True)
-
-# Let it stabilize
-print(f"Waiting for the HV to stabilize...")
-time.sleep(5)
-
-print(f"HV Voltage: {readout.getHvVoltage()}V")
-print(f"HV Current: {readout.getHvCurrent()}uA")
-print()
+# Enable the injection pulse
+readout.setFasticCalPulse(fasticNumber, True)
 
 # Receive 1000kB of data
 readout.auroraReceive(fasticNumber, 1000*1000, FILENAME)
 
-time.sleep(1)
-
-# Disable HV voltage
-readout.setHvEnabled(False)
+# Disable the injection pulse
+readout.setFasticCalPulse(fasticNumber, False)
 
 # Get the Aurora packets from the stream
 bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78'])

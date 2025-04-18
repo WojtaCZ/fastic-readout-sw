@@ -209,14 +209,14 @@ def getUserboardUID():
     data = struct.unpack('BBBBBBBBBBBBBBBBB', dev.ctrl_transfer(0xC0, Message.USERBOARD_UID, 0, 0, 17))
     shortID = data[0]
     uid = data[1] << 56 | data[2] << 48 | data[3] << 40 | data[4] << 32 | data[5] << 24 | data[6] << 16 | data[7] << 8 | data[8]
-    return uid
+    return shortID, uid
 
 def getUserboardName():
     global dev
     data = dev.ctrl_transfer(0xC0, Message.USERBOARD_NAME, 0, 0, 64).decode("utf-8")
     return data
 
-def bulkReceive(fastic, duration, filename):
+def auroraReceive(fastic, size, filename):
     global dev
     
     if fastic < 1 or fastic > 2:
@@ -238,27 +238,29 @@ def bulkReceive(fastic, duration, filename):
         except usb.core.USBError as e:
             break
         
-
+    filename = filename + ".bin"
+    
     with open(filename, "wb") as buffer_file:
-        print(f"Receiving data and writing to {filename}...")
+        print(f"Receiving data and writing to {filename}")
         try:
             # Read data from the USB endpoint
             data = usb.util.create_buffer(4096)
             
-            timeStart = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+            lenTotal = 0
             totalBytes = 0
 
             setFasticAurora(fastic, True)
             
-            while time.clock_gettime_ns(time.CLOCK_MONOTONIC) - timeStart < (duration*1000000):
+            while lenTotal < size:
                 len = dev.read(ENDPOINT, data, timeout=1000)
+                lenTotal = lenTotal + len
                 if len != 0:
                     totalBytes = totalBytes + len
                     # Write the received data to the file
                     buffer_file.write(data[:len])
 
             setFasticAurora(fastic, False)
-            print(f"Received {totalBytes/1000} kB of data")
+            print(f"Received {totalBytes/1024} kB of data")
 
         except usb.core.USBError as e:
             setFasticAurora(fastic, False)
@@ -271,6 +273,7 @@ def bulkReceive(fastic, duration, filename):
             setFasticAurora(fastic, False)
             print("Interrupted by user, stopping data reception.")
     
+    print()
 
         
 
