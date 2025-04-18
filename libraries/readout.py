@@ -39,14 +39,14 @@ def init():
         raise ValueError("Readout was not found!")
 
     # Detach kernel driver if necessary
-    if dev.is_kernel_driver_active(0):
-        dev.detach_kernel_driver(0)
+    #if dev.is_kernel_driver_active(0):
+    #dev.detach_kernel_driver(0)
 
     # Set the active configuration
-    dev.set_configuration()
+    #dev.set_configuration()
 
     # Claim the interface
-    usb.util.claim_interface(dev, 0)
+    #usb.util.claim_interface(dev, 0)
     
     fw = getReadoutFirmware()
     build_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(fw['timestamp']))
