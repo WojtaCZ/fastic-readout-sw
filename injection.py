@@ -4,6 +4,8 @@ from libraries import fastic
 from libraries.packettypes import dataPacket, coarseCounterPacket, statisticsPacket
 import time
 import csv
+import datetime
+
 
 # Number of the fastic to be used
 fasticNumber = 1
@@ -11,12 +13,21 @@ fasticNumber = 1
 # Filename to be saved
 FILENAME = "injection"
 
+# Add a timestamp to the filename
+FILENAME = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
+
 # Connect to the readout system
 try:
     readout.init()
 except Exception as e:
     print(f"Error initializing readout: {e}")
     exit(1)
+
+# Reset the FastIC+ chip so that the registers are in a known state
+readout.setFasticICReset(fasticNumber, True)
+time.sleep(0.1)
+readout.setFasticICReset(fasticNumber, False)
+time.sleep(0.5)
 
 # Get the FastIC+ revision numbers
 fastic1_rev = readout.getFasticRegister(1, 0x7f)

@@ -17,19 +17,20 @@ class Message(IntEnum):
     FASTIC_REGISTER = 7,
     FASTIC_VOLTAGE = 8,
     FASTIC_SYNCRESET = 9,
-    FASTIC_CALPULSE = 10,
-    FASTIC_TIME = 11,
-    FASTIC_AURORA = 12,
-    USERBOARD_STATUS = 13,
-    USERBOARD_INIT = 14,
-    USERBOARD_UID = 15,
-    USERBOARD_NAME = 16,
-    USERBOARD_WRITEPROTECT = 17,
-    USERBOARD_VOLTAGE = 18,
-    USERBOARD_REGISTER = 19,
-    USERBOARD_TOMEMORY = 20,
-    USERBOARD_FROMMEMORY = 21,
-    UNKNOWN = 22
+    FASTIC_ICRESET = 10,
+    FASTIC_CALPULSE = 11,
+    FASTIC_TIME = 12,
+    FASTIC_AURORA = 13,
+    USERBOARD_STATUS = 14,
+    USERBOARD_INIT = 15,
+    USERBOARD_UID = 16,
+    USERBOARD_NAME = 17,
+    USERBOARD_WRITEPROTECT = 18,
+    USERBOARD_VOLTAGE = 19,
+    USERBOARD_REGISTER = 20,
+    USERBOARD_TOMEMORY = 21,
+    USERBOARD_FROMMEMORY = 22,
+    UNKNOWN = 23
     
 def init():
     global dev
@@ -158,6 +159,21 @@ def setFasticSyncReset(fastic, state):
         raise ValueError("FastIC+ index must be either 1 and 2")
     
     dev.ctrl_transfer(0x40, Message.FASTIC_SYNCRESET, state, fastic, [0])
+    
+def getFasticICReset(fastic):
+    global dev
+    if fastic < 1 or fastic > 2:
+        raise ValueError("FastIC+ index must be either 1 and 2")
+    
+    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.FASTIC_ICRESET, 0, fastic, 1))
+    return not data[0]
+
+def setFasticICReset(fastic, state):
+    global dev
+    if fastic < 1 or fastic > 2:
+        raise ValueError("FastIC+ index must be either 1 and 2")
+    
+    dev.ctrl_transfer(0x40, Message.FASTIC_ICRESET, not state, fastic, [0])
     
 def getFasticCalPulse(fastic):
     global dev
