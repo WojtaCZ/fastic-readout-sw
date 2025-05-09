@@ -15,14 +15,14 @@ if dev is None:
 # 11,12,13 = PID
 # 4 = voltage
 
-P = 150
-I = 3
-D = 10
+P = 10
+I = 0.8
+D = 0
 pid = bytearray(struct.pack("fff", P, I, D))
 
-dev.ctrl_transfer(0x40, 20, 0, 0, pid)
+dev.ctrl_transfer(0x40, 6, 0, 0, pid)
 
 
-pid = struct.unpack('fff', dev.ctrl_transfer(0xC0, 20, 0, 0, len(pid)))
+pid = struct.unpack('fff', dev.ctrl_transfer(0xC0, 6, 0, 0, len(pid)))
 
 print(pid)

@@ -1,0 +1,4 @@
+pyusb
+bitstring
+numpy
+matplotlib

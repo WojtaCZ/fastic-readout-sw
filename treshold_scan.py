@@ -10,13 +10,10 @@ import datetime
 fasticNumber = 1
 
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
-biasVoltage = 45
+biasVoltage = 42
 
 # Filename to be saved
-FILENAME = "capture" 
-
-# Add a timestamp to the filename
-FILENAME = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
+FILENAME = "treshold_scan" 
 
 # Connect to the readout system
 try:
@@ -43,7 +40,10 @@ print()
 readout.setFasticRegister(fasticNumber, 0x00, 0x11)
 # Enable only channel 0 in single ended mode
 readout.setFasticRegister(fasticNumber, 0x01, 0x80)
-
+# Enable energy bandwith optimization
+readout.setFasticRegister(fasticNumber, 0x8F, 0xBF)
+# Disable trigger channel
+readout.setFasticRegister(fasticNumber, 0x82, 0x88)
 
 ###
 ### ADD other configuration for the fastic registers
@@ -55,7 +55,7 @@ if(shortID == 0x00):
     print(f"The userboard is not connected.")
     exit(1)
 
-# Set the bias voltage
+# Set the bias voltage to 45V
 readout.setHvVoltage(biasVoltage)
 readout.setHvEnabled(True)
 
@@ -63,6 +63,15 @@ readout.setHvEnabled(True)
 print(f"Waiting for the HV to stabilize...")
 time.sleep(5)
 
+voltage = readout.getHvVoltage()
+
+if voltage < biasVoltage - 0.5 or voltage > biasVoltage + 0.5:
+    print()
+    print(f"Voltage out of setpoin range: {voltage}")
+    print(f"Please check the connections and the voltage setting. Maybe the power supply is limitting the output due to overcurrent.")
+    print(f"Current: {readout.getHvCurrent()}uA")
+    exit(1)
+    
 print(f"HV Voltage: {readout.getHvVoltage()}V")
 print(f"HV Current: {readout.getHvCurrent()}uA")
 print()
@@ -82,29 +91,10 @@ bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78'])
 fasticPackets = fastic.parseAurora(FILENAME)
 
 # Print the data packets into the console
+packetCount = 0
 for packet in fasticPackets:
     if isinstance(packet, dataPacket):
-        print(packet)
-        print()
-    if isinstance(packet, coarseCounterPacket):
-        # Do nothing
-        pass
-    if isinstance(packet, statisticsPacket):
-        # Do nothing
-        pass
+        packetCount += 1
         
+print(f"Number of data packets: {packetCount}")
             
-# Save the packets to an CSV file
-with open(FILENAME + ".csv", mode='w', newline='') as csv_file:
-    csv_writer = csv.writer(csv_file)
-    
-    # Write the header row
-    csv_writer.writerow(["CoarseCounter", "Timestamp", "Channel", "Type", "PulseWidth", "Debug"])
-    
-    # Write packet data
-    for packet in fasticPackets:
-        if isinstance(packet, dataPacket):
-            csv_writer.writerow([packet.last_coarse_counter, packet.timestamp, packet.channel, packet.pkt_type, packet.pulse_width, packet.debug])
-       
-
-        

@@ -9,6 +9,7 @@ import datetime
 
 # Number of the fastic to be used
 fasticNumber = 1
+
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
 biasVoltage = 45
 

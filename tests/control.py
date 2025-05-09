@@ -22,8 +22,8 @@ fig, (ax1, ax2) = plt.subplots(2, 1)
 
 def update_data(frame):
     # Read current and voltage from the device
-    current = struct.unpack('f', dev.ctrl_transfer(0xC0, 0x03, 0, 0, 4))[0]
-    voltage = struct.unpack('f', dev.ctrl_transfer(0xC0, 0x04, 0, 0, 4))[0]
+    current = struct.unpack('f', dev.ctrl_transfer(0xC0, 0x04, 0, 0, 4))[0]
+    voltage = struct.unpack('f', dev.ctrl_transfer(0xC0, 0x05, 0, 0, 4))[0]
 
     # Append data to lists
     current_data.append(current)
