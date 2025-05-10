@@ -13,10 +13,10 @@ fasticNumber = 2
 fasticChannel = 2
 
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
-biasVoltage = 55
+biasVoltage = 56
 
 # Sample size for each treshold in bytes
-sampleSizeBytes = 1000*10
+sampleSizeBytes = 1000*300
 
 
 # Filename to be saved
@@ -53,7 +53,7 @@ readout.setFasticRegister(fasticNumber, 0x80, 0x01 << fasticChannel)
 readout.setFasticRegister(fasticNumber, 0x82, 0x88)
 
 # Set the TIME LSB to minimum
-readout.setFasticRegister(fasticNumber, 0x28, 0x01)
+readout.setFasticRegister(fasticNumber, 0x28, 0x04)
 
 # Set the TRG LSB to minimum
 #readout.setFasticRegister(fasticNumber, 0x68, 0x00)
@@ -98,9 +98,11 @@ plt.ion()  # Turn on interactive mode
 fig, ax = plt.subplots(figsize=(10, 6))
 line1, = ax.plot(range(64), packetCount, marker='o', linestyle='-', color='b', label='Valid Packets')
 line2, = ax.plot(range(64), errorCount, marker='x', linestyle='--', color='r', label='Error Packets')
-ax.set_title("Threshold vs Dark counts (kcps)")
+ax.set_title("Threshold vs Dark counts")
 ax.set_xlabel("Threshold")
-ax.set_ylabel("Dark counts (kcps)")
+ax.set_ylabel("Dark counts")
+ax.set_yscale('log')  # Set y-axis to logarithmic scale
+ax.set_ylim(1e-1, 1e7)  # Set y-axis limits
 ax.legend()
 ax.grid(True)
 
@@ -142,8 +144,8 @@ for treshold in range(0, 64):
             #print(packet)
             pass
 
-    packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))/1000
-    errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))/1000
+    packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))
+    errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))
     # Update the chart
 
     line1.set_ydata(packetCount)
