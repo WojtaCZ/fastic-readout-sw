@@ -52,6 +52,8 @@ def parseAurora(filename):
     global dataArray
     global dataCounter
     
+    fasticPacketDatabase.clear()
+    
     filename = filename + ".aurora"
     
     # Load the parsed pickle file

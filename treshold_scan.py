@@ -10,13 +10,13 @@ import datetime
 fasticNumber = 2
 
 # Number of the fastic channel to be used
-fasticChannel = 5
+fasticChannel = 2
 
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
-biasVoltage = 54
+biasVoltage = 55
 
 # Sample size for each treshold in bytes
-sampleSizeBytes = 1000
+sampleSizeBytes = 1000*10
 
 
 # Filename to be saved
@@ -51,9 +51,12 @@ readout.setFasticRegister(fasticNumber, 0x01, 0x01 << fasticChannel)
 readout.setFasticRegister(fasticNumber, 0x80, 0x01 << fasticChannel)
 # Disable trigger channel
 readout.setFasticRegister(fasticNumber, 0x82, 0x88)
-# Set the LSB to minimum
-readout.setFasticRegister(fasticNumber, 0x28, 0x00)
 
+# Set the TIME LSB to minimum
+readout.setFasticRegister(fasticNumber, 0x28, 0x01)
+
+# Set the TRG LSB to minimum
+#readout.setFasticRegister(fasticNumber, 0x68, 0x00)
 
 
 ###
@@ -81,7 +84,7 @@ if voltage < biasVoltage - 0.5 or voltage > biasVoltage + 0.5:
     print(f"Voltage out of setpoin range: {voltage}")
     print(f"Please check the connections and the voltage setting. Maybe the power supply is limitting the output due to overcurrent.")
     print(f"Current: {readout.getHvCurrent()}uA")
-    exit(1)
+   # exit(1)
     
 print(f"HV Voltage: {readout.getHvVoltage()}V")
 print(f"HV Current: {readout.getHvCurrent()}uA")
@@ -105,12 +108,16 @@ for treshold in range(0, 64):
     
     # COMP_Time_Global_ITH
     readout.setFasticRegister(fasticNumber, 0x26, treshold | 0x80)
+    
+    # COMP_Trg_Global_ITH
+    #readout.setFasticRegister(fasticNumber, 0x27, treshold | 0x80)
+    
 
     # Receive the data
     readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
     
     # Get the Aurora packets from the stream
-    bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78'])
+    bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78, 'b'\xd2', b'\x99', b'\x55', b'\xb4', b'\xcc', b'\x66', b'\x33', b'\x4b', b'\x87'])
 
     # Parse the Aurora packets into FastIC packets
     fasticPackets = fastic.parseAurora(FILENAME)
@@ -119,22 +126,26 @@ for treshold in range(0, 64):
     for packet in fasticPackets:
         if isinstance(packet, dataPacket):
            
-            if packet.channel == fasticChannel and packet.parity_ok:
+            if packet.channel == fasticChannel and packet.parity_ok and packet.pkt_type == 1:
                 packetCount[treshold] += 1
                 
-            if not packet.parity_ok:
+            elif not packet.parity_ok:
                 errorCount[treshold] += 1
+            else:
+                print(packet)
             
         if isinstance(packet, coarseCounterPacket):
             # Do nothing
+          #  print(packet)
             pass
         if isinstance(packet, statisticsPacket):   
-            # Do nothing
+            #print(packet)
             pass
 
     packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))/1000
     errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))/1000
     # Update the chart
+
     line1.set_ydata(packetCount)
     line2.set_ydata(errorCount)
     ax.relim()
