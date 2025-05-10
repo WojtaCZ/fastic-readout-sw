@@ -1,68 +1,72 @@
 from enum import IntEnum
-import usb.core
-import usb.util
+import usb1
 import struct
 import bitstring
 from bitstring import BitArray
 import time
+from time import perf_counter
+
 
 class Message(IntEnum):
-    READOUT_STATUS = 0,
-    READOUT_UID = 1,
-    READOUT_FIRMWARE = 2,
-    HV_ENABLE = 3,
-    HV_CURRENT = 4,
-    HV_VOLTAGE = 5,
-    HV_PID = 6,
-    FASTIC_REGISTER = 7,
-    FASTIC_VOLTAGE = 8,
-    FASTIC_SYNCRESET = 9,
-    FASTIC_ICRESET = 10,
-    FASTIC_CALPULSE = 11,
-    FASTIC_TIME = 12,
-    FASTIC_AURORA = 13,
-    USERBOARD_STATUS = 14,
-    USERBOARD_INIT = 15,
-    USERBOARD_UID = 16,
-    USERBOARD_NAME = 17,
-    USERBOARD_WRITEPROTECT = 18,
-    USERBOARD_VOLTAGE = 19,
-    USERBOARD_REGISTER = 20,
-    USERBOARD_TOMEMORY = 21,
-    USERBOARD_FROMMEMORY = 22,
+    READOUT_STATUS = 0
+    READOUT_UID = 1
+    READOUT_FIRMWARE = 2
+    HV_ENABLE = 3
+    HV_CURRENT = 4
+    HV_VOLTAGE = 5
+    HV_PID = 6
+    FASTIC_REGISTER = 7
+    FASTIC_VOLTAGE = 8
+    FASTIC_SYNCRESET = 9
+    FASTIC_ICRESET = 10
+    FASTIC_CALPULSE = 11
+    FASTIC_TIME = 12
+    FASTIC_AURORA = 13
+    USERBOARD_STATUS = 14
+    USERBOARD_INIT = 15
+    USERBOARD_UID = 16
+    USERBOARD_NAME = 17
+    USERBOARD_WRITEPROTECT = 18
+    USERBOARD_VOLTAGE = 19
+    USERBOARD_REGISTER = 20
+    USERBOARD_TOMEMORY = 21
+    USERBOARD_FROMMEMORY = 22
     UNKNOWN = 23
-    
+
+context = None
+dev = None
 def init():
-    global dev
-    dev = usb.core.find(idVendor=0xcafe, idProduct=0x4000)
+    global context, dev
+    context = usb1.USBContext()
+    dev = context.openByVendorIDAndProductID(0xcafe, 0x4000)
 
     if dev is None:
         raise ValueError("Readout was not found!")
 
-    # Detach kernel driver if necessary
-    #if dev.is_kernel_driver_active(0):
-    #dev.detach_kernel_driver(0)
-
-    # Set the active configuration
-    #dev.set_configuration()
-
-    # Claim the interface
-    #usb.util.claim_interface(dev, 0)
-    
     fw = getReadoutFirmware()
     build_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(fw['timestamp']))
+
+    speed = dev.getDevice().getDeviceSpeed()
     
+    if speed != usb1.SPEED_HIGH:
+        raise ValueError("Readout is not connected at High Speed and Low Speed operation is not supported! Please check the connection.")
+
     print(f"FastIC+ readout connected!")
     print(f"   UID: {getReadoutUID()}")
     print(f"   Firmware: {fw['revision'].decode('utf-8')}")
     print(f"   Build date: {build_date}")
     print()
-    
-    
+
+def ctrl_transfer(request_type, request, value, index, length_or_data):
+    global dev
+    if isinstance(length_or_data, int):
+        return dev.controlRead(request_type, request, value, index, length_or_data)
+    else:
+        dev.controlWrite(request_type, request, value, index, length_or_data)
 
 def getStatus():
     global dev
-    data = struct.unpack('ffH', dev.ctrl_transfer(0xC0, Message.READOUT_STATUS, 0, 0, 10))
+    data = struct.unpack('ffH', ctrl_transfer(0xC0, Message.READOUT_STATUS, 0, 0, 10))
     bits = BitArray(bin=bin(data[2]))
     ret = {
         'temperature': data[0],
@@ -82,13 +86,13 @@ def getStatus():
     
 def getReadoutUID():
     global dev
-    data = struct.unpack('iii', dev.ctrl_transfer(0xC0, Message.READOUT_UID, 0, 0, 12))
+    data = struct.unpack('iii', ctrl_transfer(0xC0, Message.READOUT_UID, 0, 0, 12))
     uid = (data[0] << 64) | (data[1] << 32) | data[2]
     return hex(uid)
 
 def getReadoutFirmware():
     global dev
-    data = struct.unpack('7p33pI', dev.ctrl_transfer(0xC0, Message.READOUT_FIRMWARE, 0, 0, 7+33+4))
+    data = struct.unpack('7p33pI', ctrl_transfer(0xC0, Message.READOUT_FIRMWARE, 0, 0, 7+33+4))
     
     ret = {
         'revision': data[0],
@@ -100,26 +104,26 @@ def getReadoutFirmware():
 
 def getHvEnabled():
     global dev
-    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.HV_ENABLE, 0, 0, 4))
+    data = struct.unpack('?', ctrl_transfer(0xC0, Message.HV_ENABLE, 0, 0, 4))
     return data[0]
 
 def setHvEnabled(state):
     global dev
-    dev.ctrl_transfer(0x40, Message.HV_ENABLE, 0, 0, bytes((state,)))
+    ctrl_transfer(0x40, Message.HV_ENABLE, 0, 0, bytes((state,)))
 
 def getHvCurrent():
     global dev
-    data = struct.unpack('f', dev.ctrl_transfer(0xC0, Message.HV_CURRENT, 0, 0, 4))
+    data = struct.unpack('f', ctrl_transfer(0xC0, Message.HV_CURRENT, 0, 0, 4))
     return data[0]
 
 def getHvVoltage():
     global dev
-    data = struct.unpack('f', dev.ctrl_transfer(0xC0, Message.HV_VOLTAGE, 0, 0, 4))
+    data = struct.unpack('f', ctrl_transfer(0xC0, Message.HV_VOLTAGE, 0, 0, 4))
     return data[0]
 
 def setHvVoltage(value):
     global dev
-    dev.ctrl_transfer(0x40, Message.HV_VOLTAGE, 0, 0, bytearray(struct.pack("f", value)))
+    ctrl_transfer(0x40, Message.HV_VOLTAGE, 0, 0, bytearray(struct.pack("f", value)))
 
 
 def getFasticRegister(fastic, register):
@@ -127,7 +131,7 @@ def getFasticRegister(fastic, register):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('B', dev.ctrl_transfer(0xC0, Message.FASTIC_REGISTER, register, fastic, 1))
+    data = struct.unpack('B', ctrl_transfer(0xC0, Message.FASTIC_REGISTER, register, fastic, 1))
     return data[0]
 
 def setFasticRegister(fastic, register, value, force = False):
@@ -135,14 +139,14 @@ def setFasticRegister(fastic, register, value, force = False):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    dev.ctrl_transfer(0x40, Message.FASTIC_REGISTER, register | ((force & 0x01) << 15), fastic, bytearray(struct.pack("B", value)))
+    ctrl_transfer(0x40, Message.FASTIC_REGISTER, register | ((force & 0x01) << 15), fastic, bytearray(struct.pack("B", value)))
 
 def getFasticVoltage(fastic):
     global dev
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('f', dev.ctrl_transfer(0xC0, Message.FASTIC_VOLTAGE, 0, fastic, 4))
+    data = struct.unpack('f', ctrl_transfer(0xC0, Message.FASTIC_VOLTAGE, 0, fastic, 4))
     return data[0]
 
 def getFasticSyncReset(fastic):
@@ -150,7 +154,7 @@ def getFasticSyncReset(fastic):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.FASTIC_SYNCRESET, 0, fastic, 1))
+    data = struct.unpack('?', ctrl_transfer(0xC0, Message.FASTIC_SYNCRESET, 0, fastic, 1))
     return data[0]
 
 def setFasticSyncReset(fastic, state):
@@ -158,14 +162,14 @@ def setFasticSyncReset(fastic, state):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    dev.ctrl_transfer(0x40, Message.FASTIC_SYNCRESET, state, fastic, [0])
+    ctrl_transfer(0x40, Message.FASTIC_SYNCRESET, state, fastic, [0])
     
 def getFasticICReset(fastic):
     global dev
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.FASTIC_ICRESET, 0, fastic, 1))
+    data = struct.unpack('?', ctrl_transfer(0xC0, Message.FASTIC_ICRESET, 0, fastic, 1))
     return not data[0]
 
 def setFasticICReset(fastic, state):
@@ -173,14 +177,14 @@ def setFasticICReset(fastic, state):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    dev.ctrl_transfer(0x40, Message.FASTIC_ICRESET, not state, fastic, [0])
+    ctrl_transfer(0x40, Message.FASTIC_ICRESET, not state, fastic, [0])
     
 def getFasticCalPulse(fastic):
     global dev
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.FASTIC_CALPULSE, 0, fastic, 1))
+    data = struct.unpack('?', ctrl_transfer(0xC0, Message.FASTIC_CALPULSE, 0, fastic, 1))
     return data[0]
 
 def setFasticCalPulse(fastic, state):
@@ -188,14 +192,14 @@ def setFasticCalPulse(fastic, state):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    dev.ctrl_transfer(0x40, Message.FASTIC_CALPULSE, state, fastic, [0])
+    ctrl_transfer(0x40, Message.FASTIC_CALPULSE, state, fastic, [0])
     
 def getFasticTime(fastic):
     global dev
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.FASTIC_TIME, 0, fastic, 1))
+    data = struct.unpack('?', ctrl_transfer(0xC0, Message.FASTIC_TIME, 0, fastic, 1))
     return data[0]
 
 def getFasticAurora(fastic):
@@ -203,7 +207,7 @@ def getFasticAurora(fastic):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    data = struct.unpack('?', dev.ctrl_transfer(0xC0, Message.FASTIC_AURORA, 0, fastic, 1))
+    data = struct.unpack('?', ctrl_transfer(0xC0, Message.FASTIC_AURORA, 0, fastic, 1))
     return data[0]
 
 def setFasticAurora(fastic, state):
@@ -211,85 +215,100 @@ def setFasticAurora(fastic, state):
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    dev.ctrl_transfer(0x40, Message.FASTIC_AURORA, state & 0x0001, fastic, [0])
+    ctrl_transfer(0x40, Message.FASTIC_AURORA, state & 0x0001, fastic, [0])
     
 #def getUserboardStatus():
     
 def getUserboardRegister(register):
     global dev
-    data = struct.unpack('B', dev.ctrl_transfer(0xC0, Message.USERBOARD_REGISTER, register, 0, 1))
+    data = struct.unpack('B', ctrl_transfer(0xC0, Message.USERBOARD_REGISTER, register, 0, 1))
     return data[0]
 
 def getUserboardUID():
     global dev
-    data = struct.unpack('BBBBBBBBBBBBBBBBB', dev.ctrl_transfer(0xC0, Message.USERBOARD_UID, 0, 0, 17))
+    data = struct.unpack('BBBBBBBBBBBBBBBBB', ctrl_transfer(0xC0, Message.USERBOARD_UID, 0, 0, 17))
     shortID = data[0]
     uid = data[1] << 56 | data[2] << 48 | data[3] << 40 | data[4] << 32 | data[5] << 24 | data[6] << 16 | data[7] << 8 | data[8]
     return shortID, uid
 
 def getUserboardName():
     global dev
-    data = dev.ctrl_transfer(0xC0, Message.USERBOARD_NAME, 0, 0, 64).decode("utf-8")
+    data = ctrl_transfer(0xC0, Message.USERBOARD_NAME, 0, 0, 64).decode("utf-8")
     return data
+            
+def auroraReceive(fastic, size: int, filename: str):
+    global dev, context
 
-def auroraReceive(fastic, size, filename):
-    global dev
-    
     if fastic < 1 or fastic > 2:
         raise ValueError("FastIC+ index must be either 1 and 2")
     
-    if fastic == 1:
-        ENDPOINT = 0x83
-    else:
-        ENDPOINT = 0x84
-        
-    setFasticAurora(fastic, False)
     
-    tmp = usb.util.create_buffer(4096)
-            
-    # Read any old data that we dont care about and trash it
-    while True:
-        try:
-            dev.read(ENDPOINT, tmp, timeout=1)
-        except usb.core.USBError as e:
-            break
-        
     filename = filename + ".bin"
     
-    with open(filename, "wb") as buffer_file:
-        print(f"Receiving data and writing to {filename}")
-        try:
-            # Read data from the USB endpoint
-            data = usb.util.create_buffer(4096)
-            
-            lenTotal = 0
-            totalBytes = 0
-
-            setFasticAurora(fastic, True)
-            
-            while lenTotal < size:
-                len = dev.read(ENDPOINT, data, timeout=1000)
-                lenTotal = lenTotal + len
-                if len != 0:
-                    totalBytes = totalBytes + len
-                    # Write the received data to the file
-                    buffer_file.write(data[:len])
-
-            setFasticAurora(fastic, False)
-            print(f"Received {totalBytes/1024} kB of data")
-
-        except usb.core.USBError as e:
-            setFasticAurora(fastic, False)
-            
-            if e.errno == 110:  # Timeout error
-                print("Timeout reached, stopping data reception.")
-            else:
-                print(f"USB Error: {e}")
-        except KeyboardInterrupt:
-            setFasticAurora(fastic, False)
-            print("Interrupted by user, stopping data reception.")
     
-    print()
+    TRANSFER_SIZE = 16 * 1024
+    NUM_TRANSFERS = 128
+    TIMEOUT_US = 1000
+    
+    ENDPOINT = 0x83 if fastic == 1 else 0x84
+    INTERFACE = 2 if fastic == 1 else 3
 
-        
+    received = 0
+    buffers = []
+    completed = False
 
+    def on_transfer(transfer):
+        nonlocal received, completed
+
+        status = transfer.getStatus()
+        if status == usb1.TRANSFER_COMPLETED:
+            data = transfer.getBuffer()[:transfer.getActualLength()]
+            if received + len(data) <= size:
+                buffers.append(bytes(data))
+                received += len(data)
+                if received >= size:
+                    completed = True
+                else:
+                    transfer.submit()
+            else:
+                # Only take the remaining bytes needed
+                remaining = size - received
+                buffers.append(bytes(data[:remaining]))
+                received += remaining
+                completed = True
+        elif status in (usb1.TRANSFER_CANCELLED, usb1.TRANSFER_ERROR, usb1.TRANSFER_NO_DEVICE):
+            if not completed:
+                print(f"Transfer failed with status {status}. Check device connection and endpoint configuration.")
+        else:
+            transfer.submit()  # Retry on temporary errors
+
+    # Claim the interface
+    dev.claimInterface(INTERFACE)
+
+    # Submit transfers
+    for _ in range(NUM_TRANSFERS):
+        transfer = dev.getTransfer()
+        buffer = bytearray(TRANSFER_SIZE)
+        transfer.setBulk(
+            ENDPOINT,
+            buffer,
+            callback=on_transfer,
+            timeout=0
+        )
+        transfer.submit()
+    
+    # Enable aurora streaming
+    setFasticAurora(fastic, True)
+
+    # Poll until all data is received
+    while not completed:
+        context.handleEventsTimeout(tv=TIMEOUT_US / 1e6)
+    
+    setFasticAurora(fastic, False)
+    
+    print(f"Received {received} bytes")
+
+    # Write to file
+    with open(filename, 'wb') as f:
+        for chunk in buffers:
+            f.write(chunk)

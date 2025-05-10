@@ -8,7 +8,10 @@ import datetime
 
 
 # Number of the fastic to be used
-fasticNumber = 1
+fasticNumber = 2
+
+# Number of the fastic channel to be used
+fasticChannel = 5
 
 # Filename to be saved
 FILENAME = "injection"
@@ -40,9 +43,9 @@ print()
 # Enable single ended positive polarity mode
 readout.setFasticRegister(fasticNumber, 0x00, 0x11)
 # Enable only channel 0 in single ended mode
-readout.setFasticRegister(fasticNumber, 0x01, 0x01)
+readout.setFasticRegister(fasticNumber, 0x01, 0x01 << fasticChannel)
 # Enable injection pulse routing to channel 0
-readout.setFasticRegister(fasticNumber, 0x02, 0x01)
+readout.setFasticRegister(fasticNumber, 0x02, 0x01 << fasticChannel)
 
 # Enable the injection pulse
 readout.setFasticCalPulse(fasticNumber, True)

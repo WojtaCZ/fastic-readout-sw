@@ -7,10 +7,17 @@ import csv
 import datetime
 
 # Number of the fastic to be used
-fasticNumber = 1
+fasticNumber = 2
+
+# Number of the fastic channel to be used
+fasticChannel = 5
 
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
-biasVoltage = 42
+biasVoltage = 54
+
+# Sample size for each treshold in bytes
+sampleSizeBytes = 1000
+
 
 # Filename to be saved
 FILENAME = "treshold_scan" 
@@ -38,12 +45,16 @@ print()
 
 # Enable single ended positive polarity mode
 readout.setFasticRegister(fasticNumber, 0x00, 0x11)
-# Enable only channel 0 in single ended mode
-readout.setFasticRegister(fasticNumber, 0x01, 0x80)
-# Enable energy bandwith optimization
-readout.setFasticRegister(fasticNumber, 0x8F, 0xBF)
+# Enable the selectec channel
+readout.setFasticRegister(fasticNumber, 0x01, 0x01 << fasticChannel)
+# Only enable readout for the selected channel
+readout.setFasticRegister(fasticNumber, 0x80, 0x01 << fasticChannel)
 # Disable trigger channel
 readout.setFasticRegister(fasticNumber, 0x82, 0x88)
+# Set the LSB to minimum
+readout.setFasticRegister(fasticNumber, 0x28, 0x00)
+
+
 
 ###
 ### ADD other configuration for the fastic registers
@@ -55,13 +66,13 @@ if(shortID == 0x00):
     print(f"The userboard is not connected.")
     exit(1)
 
-# Set the bias voltage to 45V
+# Set the bias voltage
 readout.setHvVoltage(biasVoltage)
 readout.setHvEnabled(True)
 
 # Let it stabilize
 print(f"Waiting for the HV to stabilize...")
-time.sleep(5)
+time.sleep(2)
 
 voltage = readout.getHvVoltage()
 
@@ -75,26 +86,69 @@ if voltage < biasVoltage - 0.5 or voltage > biasVoltage + 0.5:
 print(f"HV Voltage: {readout.getHvVoltage()}V")
 print(f"HV Current: {readout.getHvCurrent()}uA")
 print()
+import matplotlib.pyplot as plt
 
-# Receive 1000kB of data
-readout.auroraReceive(fasticNumber, 1000*1000, FILENAME)
+packetCount = 64*[0]
+errorCount = 64*[0]
 
-time.sleep(1)
+plt.ion()  # Turn on interactive mode
+fig, ax = plt.subplots(figsize=(10, 6))
+line1, = ax.plot(range(64), packetCount, marker='o', linestyle='-', color='b', label='Valid Packets')
+line2, = ax.plot(range(64), errorCount, marker='x', linestyle='--', color='r', label='Error Packets')
+ax.set_title("Threshold vs Dark counts (kcps)")
+ax.set_xlabel("Threshold")
+ax.set_ylabel("Dark counts (kcps)")
+ax.legend()
+ax.grid(True)
+
+for treshold in range(0, 64):
+    
+    # COMP_Time_Global_ITH
+    readout.setFasticRegister(fasticNumber, 0x26, treshold | 0x80)
+
+    # Receive the data
+    readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
+    
+    # Get the Aurora packets from the stream
+    bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78'])
+
+    # Parse the Aurora packets into FastIC packets
+    fasticPackets = fastic.parseAurora(FILENAME)
+
+    # Print the data packets into the console
+    for packet in fasticPackets:
+        if isinstance(packet, dataPacket):
+           
+            if packet.channel == fasticChannel and packet.parity_ok:
+                packetCount[treshold] += 1
+                
+            if not packet.parity_ok:
+                errorCount[treshold] += 1
+            
+        if isinstance(packet, coarseCounterPacket):
+            # Do nothing
+            pass
+        if isinstance(packet, statisticsPacket):   
+            # Do nothing
+            pass
+
+    packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))/1000
+    errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))/1000
+    # Update the chart
+    line1.set_ydata(packetCount)
+    line2.set_ydata(errorCount)
+    ax.relim()
+    ax.autoscale_view()
+    plt.pause(0.1)  # Pause to update the plot
+
+plt.ioff()  # Turn off interactive mode
+plt.show()
 
 # Disable HV voltage
 readout.setHvEnabled(False)
 
-# Get the Aurora packets from the stream
-bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78'])
 
-# Parse the Aurora packets into FastIC packets
-fasticPackets = fastic.parseAurora(FILENAME)
 
-# Print the data packets into the console
-packetCount = 0
-for packet in fasticPackets:
-    if isinstance(packet, dataPacket):
-        packetCount += 1
         
-print(f"Number of data packets: {packetCount}")
+
             

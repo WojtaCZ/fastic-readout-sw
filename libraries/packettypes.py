@@ -17,6 +17,7 @@ class dataPacket:
         self.parity_timestamp_check = (data[6:28].count(1) % 2) == self.parity_timestamp
         self.parity_pulse_width_check = (data[28:42].count(1) % 2) == self.parity_pulse_width
         self.parity_all_check = (data[0:4].count(1) + data[4:6].count(1) + data[6:28].count(1) + data[28:42].count(1)) % 2 == self.parity_all
+        self.parity_ok = self.parity_channel_check and self.parity_pkt_type_check and self.parity_timestamp_check and self.parity_pulse_width_check and self.parity_all_check
         self.last_coarse_counter = last_coarse_counter
 
     def __str__(self):
@@ -27,7 +28,7 @@ class dataPacket:
             3 : "PKT_TOA_TOTLN",
         }
         
-        return f"[DATA] \n   Channel: {self.channel} \n   Packet type: {pkt_type_map[self.pkt_type]} \n   Timestamp: {self.timestamp} \n   Last coarse counter: {self.last_coarse_counter} \n   Pulse width: {self.pulse_width} \n   Debug: {self.debug} \n   Parity channel: {int(self.parity_channel)} ({'OK' if self.parity_channel_check else 'ERROR'}) \n   Parity pkt_type: {int(self.parity_pkt_type)} ({'OK' if self.parity_pkt_type_check else 'ERROR'}) \n   Parity timestamp: {int(self.parity_timestamp)} ({'OK' if self.parity_timestamp_check else 'ERROR'}) \n   Parity pulse width: {int(self.parity_pulse_width)} ({'OK' if self.parity_pulse_width_check else 'ERROR'}) \n   Parity all: {int(self.parity_all)} ({'OK' if self.parity_all_check else 'ERROR'})"
+        return f"[DATA] \n   Channel: {self.channel} \n   Packet type: {pkt_type_map[self.pkt_type]} \n   Timestamp: {self.timestamp} \n   Last coarse counter: {self.last_coarse_counter} \n   Pulse width: {self.pulse_width} \n   Debug: {self.debug} \n   Parity channel: {int(self.parity_channel)} ({'OK' if self.parity_channel_check else 'ERROR'}) \n   Parity pkt_type: {int(self.parity_pkt_type)} ({'OK' if self.parity_pkt_type_check else 'ERROR'}) \n   Parity timestamp: {int(self.parity_timestamp)} ({'OK' if self.parity_timestamp_check else 'ERROR'}) \n   Parity pulse width: {int(self.parity_pulse_width)} ({'OK' if self.parity_pulse_width_check else 'ERROR'}) \n   Parity all: {int(self.parity_all)} ({'OK' if self.parity_all_check else 'ERROR'}) \n   Oveall parity: {'OK' if self.parity_ok else 'ERROR'}"
 
 class coarseCounterPacket:
     def __init__(self, data):
