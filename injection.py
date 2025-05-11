@@ -13,6 +13,9 @@ fasticNumber = 2
 # Number of the fastic channel to be used
 fasticChannel = 5
 
+# Sample size for the capture in bytes
+sampleSizeBytes = 1000*300
+
 # Filename to be saved
 FILENAME = "injection"
 
@@ -51,7 +54,7 @@ readout.setFasticRegister(fasticNumber, 0x02, 0x01 << fasticChannel)
 readout.setFasticCalPulse(fasticNumber, True)
 
 # Receive 1000kB of data
-readout.auroraReceive(fasticNumber, 1000*1000, FILENAME)
+readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
 
 # Disable the injection pulse
 readout.setFasticCalPulse(fasticNumber, False)

@@ -2,6 +2,7 @@ from libraries import readout
 from libraries import bitstream
 from libraries import fastic
 from libraries.packettypes import dataPacket, coarseCounterPacket, statisticsPacket
+import matplotlib.pyplot as plt
 import time
 import csv
 import datetime
@@ -16,7 +17,7 @@ fasticChannel = 2
 biasVoltage = 56
 
 # Sample size for each treshold in bytes
-sampleSizeBytes = 1000*300
+sampleSizeBytes = 1000*30
 
 
 # Filename to be saved
@@ -55,6 +56,9 @@ readout.setFasticRegister(fasticNumber, 0x82, 0x88)
 # Set the TIME LSB to minimum
 readout.setFasticRegister(fasticNumber, 0x28, 0x04)
 
+# Max aurora data frame size - this is needed for correct synchronization
+readout.setFasticRegister(fasticNumber, 0xA2, 0x01, True)
+
 # Set the TRG LSB to minimum
 #readout.setFasticRegister(fasticNumber, 0x68, 0x00)
 
@@ -89,28 +93,26 @@ if voltage < biasVoltage - 0.5 or voltage > biasVoltage + 0.5:
 print(f"HV Voltage: {readout.getHvVoltage()}V")
 print(f"HV Current: {readout.getHvCurrent()}uA")
 print()
-import matplotlib.pyplot as plt
 
 packetCount = 64*[0]
 errorCount = 64*[0]
 
-plt.ion()  # Turn on interactive mode
-fig, ax = plt.subplots(figsize=(10, 6))
-line1, = ax.plot(range(64), packetCount, marker='o', linestyle='-', color='b', label='Valid Packets')
-#line2, = ax.plot(range(64), errorCount, marker='x', linestyle='--', color='r', label='Error Packets')
-ax.set_title("Threshold vs Dark counts")
-ax.set_xlabel("Threshold")
-ax.set_ylabel("Dark counts")
-ax.set_yscale('log')  # Set y-axis to logarithmic scale
-ax.set_ylim(1e-1, 1e9)  # Set y-axis limits
-#ax.legend()
-ax.grid(True)
+# Open a CSV file to store the results
+with open(f"{FILENAME}_results.csv", mode='w', newline='') as csvfile:
+    csvwriter = csv.writer(csvfile)
+    csvwriter.writerow(["Threshold", "Valid Packets", "Error Packets"])  # Write the header
 
-# Prepare CSV file for saving data
-csv_filename = "threshold_scan_results.csv"
-with open(csv_filename, mode='w', newline='') as csvfile:
-    csv_writer = csv.writer(csvfile)
-    csv_writer.writerow(["Threshold", "Packet Count"])  # Write header
+    plt.ion()  # Turn on interactive mode
+    fig, ax = plt.subplots(figsize=(10, 6))
+    line1, = ax.plot(range(64), packetCount, marker='o', linestyle='-', color='b', label='Valid Packets')
+    line2, = ax.plot(range(64), errorCount, marker='x', linestyle='--', color='r', label='Error Packets')
+    ax.set_title("Threshold vs Dark counts")
+    ax.set_xlabel("Threshold")
+    ax.set_ylabel("Dark counts")
+    ax.set_yscale('log')  # Set y-axis to logarithmic scale
+    ax.set_ylim(1e-1, 1e7)  # Set y-axis limits
+    ax.legend()
+    ax.grid(True)
 
     for treshold in range(0, 64):
         
@@ -133,38 +135,38 @@ with open(csv_filename, mode='w', newline='') as csvfile:
         # Print the data packets into the console
         for packet in fasticPackets:
             if isinstance(packet, dataPacket):
-                packetCount[treshold] += 1
+            
+                if packet.channel == fasticChannel and packet.parity_ok:
+                    packetCount[treshold] += 1
+                    
+                else:
+                    errorCount[treshold] += 1
                 
             if isinstance(packet, coarseCounterPacket):
                 # Do nothing
+            #  print(packet)
                 pass
             if isinstance(packet, statisticsPacket):   
-                # Do nothing
+                #print(packet)
                 pass
 
         packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))
         errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))
         
-        # Save data to CSV
-        csv_writer.writerow([treshold, packetCount[treshold]])
+        # Write the results to the CSV file
+        csvwriter.writerow([treshold, packetCount[treshold], errorCount[treshold]])
 
         # Update the chart
         line1.set_ydata(packetCount)
-        #line2.set_ydata(errorCount)
+        line2.set_ydata(errorCount)
         ax.relim()
         ax.autoscale_view()
         plt.pause(0.1)  # Pause to update the plot
 
-plt.ioff()  # Turn off interactive mode
-plt.show()
+    plt.ioff()  # Turn off interactive mode
+    plt.show()
 
 # Disable HV voltage
 readout.setHvEnabled(False)
-
-print(f"Results saved to {csv_filename}")
-
-
-
-        
 
             

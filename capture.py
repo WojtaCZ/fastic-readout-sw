@@ -15,6 +15,9 @@ fasticChannel = 2
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
 biasVoltage = 56
 
+# Sample size for the capture in bytes
+sampleSizeBytes = 1000*300
+
 # Save as CSV file?
 saveCSV = False
 
@@ -98,7 +101,7 @@ print(f"HV Current: {readout.getHvCurrent()}uA")
 print()
 
 # Receive 1000kB of data
-readout.auroraReceive(fasticNumber, 1000*300, FILENAME)
+readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
 
 time.sleep(1)
 
