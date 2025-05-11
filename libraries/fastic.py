@@ -44,10 +44,8 @@ def parse_coarse_counter(data):
 statArray = bitstring.BitArray()
 dataArray = bitstring.BitArray()
 
-hasPreviousData = False
 
 def parseAurora(filename):
-    global hasPreviousData
     global statArray
     global dataArray
     global dataCounter
@@ -88,19 +86,10 @@ def parseAurora(filename):
         # Just append to the array
         if isinstance(obj, dataBlock):
             dataArray = obj.data + dataArray
-            hasPreviousData = True
-        
-        if isinstance(obj, separator7Block):
-            dataArray = obj.data + dataArray
-            hasPreviousData = True
-            
-        if isinstance(obj, separatorBlock):
-            dataArray = obj.data + dataArray
-            hasPreviousData = True
             
         # If we received data previously but now, the block is a control, parse the data
-        if hasPreviousData == True and not isinstance(obj, dataBlock) and not isinstance(obj, separatorBlock) and not isinstance(obj, separator7Block):
-            hasPreviousData = False
+        if isinstance(obj, separatorBlock) or isinstance(obj, separator7Block):
+            dataArray = obj.data + dataArray
             parse_channels_data(dataArray, coarseCounter)
             dataArray = bitstring.BitArray()
             

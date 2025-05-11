@@ -97,68 +97,71 @@ errorCount = 64*[0]
 plt.ion()  # Turn on interactive mode
 fig, ax = plt.subplots(figsize=(10, 6))
 line1, = ax.plot(range(64), packetCount, marker='o', linestyle='-', color='b', label='Valid Packets')
-line2, = ax.plot(range(64), errorCount, marker='x', linestyle='--', color='r', label='Error Packets')
+#line2, = ax.plot(range(64), errorCount, marker='x', linestyle='--', color='r', label='Error Packets')
 ax.set_title("Threshold vs Dark counts")
 ax.set_xlabel("Threshold")
 ax.set_ylabel("Dark counts")
 ax.set_yscale('log')  # Set y-axis to logarithmic scale
-ax.set_ylim(1e-1, 1e7)  # Set y-axis limits
-ax.legend()
+ax.set_ylim(1e-1, 1e9)  # Set y-axis limits
+#ax.legend()
 ax.grid(True)
 
-for treshold in range(0, 64):
-    
-    # COMP_Time_Global_ITH
-    readout.setFasticRegister(fasticNumber, 0x26, treshold | 0x80)
-    
-    # COMP_Trg_Global_ITH
-    #readout.setFasticRegister(fasticNumber, 0x27, treshold | 0x80)
-    
+# Prepare CSV file for saving data
+csv_filename = "threshold_scan_results.csv"
+with open(csv_filename, mode='w', newline='') as csvfile:
+    csv_writer = csv.writer(csvfile)
+    csv_writer.writerow(["Threshold", "Packet Count"])  # Write header
 
-    # Receive the data
-    readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
-    
-    # Get the Aurora packets from the stream
-    bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78, 'b'\xd2', b'\x99', b'\x55', b'\xb4', b'\xcc', b'\x66', b'\x33', b'\x4b', b'\x87'])
+    for treshold in range(0, 64):
+        
+        # COMP_Time_Global_ITH
+        readout.setFasticRegister(fasticNumber, 0x26, treshold | 0x80)
+        
+        # COMP_Trg_Global_ITH
+        #readout.setFasticRegister(fasticNumber, 0x27, treshold | 0x80)
+        
 
-    # Parse the Aurora packets into FastIC packets
-    fasticPackets = fastic.parseAurora(FILENAME)
+        # Receive the data
+        readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
+        
+        # Get the Aurora packets from the stream
+        bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78', b'\xd2', b'\x99', b'\x55', b'\xb4', b'\xcc', b'\x66', b'\x33', b'\x4b', b'\x87'])
 
-    # Print the data packets into the console
-    for packet in fasticPackets:
-        if isinstance(packet, dataPacket):
-           
-            if packet.channel == fasticChannel and packet.parity_ok and packet.pkt_type == 1:
+        # Parse the Aurora packets into FastIC packets
+        fasticPackets = fastic.parseAurora(FILENAME)
+
+        # Print the data packets into the console
+        for packet in fasticPackets:
+            if isinstance(packet, dataPacket):
                 packetCount[treshold] += 1
                 
-            elif not packet.parity_ok:
-                errorCount[treshold] += 1
-            else:
-                print(packet)
-            
-        if isinstance(packet, coarseCounterPacket):
-            # Do nothing
-          #  print(packet)
-            pass
-        if isinstance(packet, statisticsPacket):   
-            #print(packet)
-            pass
+            if isinstance(packet, coarseCounterPacket):
+                # Do nothing
+                pass
+            if isinstance(packet, statisticsPacket):   
+                # Do nothing
+                pass
 
-    packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))
-    errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))
-    # Update the chart
+        packetCount[treshold] = (packetCount[treshold] / (sampleSizeBytes / 10000000))
+        errorCount[treshold] = (errorCount[treshold] / (sampleSizeBytes / 10000000))
+        
+        # Save data to CSV
+        csv_writer.writerow([treshold, packetCount[treshold]])
 
-    line1.set_ydata(packetCount)
-    line2.set_ydata(errorCount)
-    ax.relim()
-    ax.autoscale_view()
-    plt.pause(0.1)  # Pause to update the plot
+        # Update the chart
+        line1.set_ydata(packetCount)
+        #line2.set_ydata(errorCount)
+        ax.relim()
+        ax.autoscale_view()
+        plt.pause(0.1)  # Pause to update the plot
 
 plt.ioff()  # Turn off interactive mode
 plt.show()
 
 # Disable HV voltage
 readout.setHvEnabled(False)
+
+print(f"Results saved to {csv_filename}")
 
 
 

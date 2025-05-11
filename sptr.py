@@ -8,10 +8,13 @@ import matplotlib.pyplot as plt
 import datetime
 
 # Number of the fastic to be used
-fasticNumber = 1
+fasticNumber = 2
+
+# Number of the fastic channel to be used
+fasticChannel = 2
 
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
-biasVoltage = 45
+biasVoltage = 55
 
 # Filename to be saved
 FILENAME = "sptr"
@@ -46,19 +49,26 @@ print()
 
 # Enable single ended positive polarity mode
 readout.setFasticRegister(fasticNumber, 0x00, 0x11)
+# Enable the selectec channel
+readout.setFasticRegister(fasticNumber, 0x01, 0x01 << fasticChannel)
+# Only enable readout for the selected channel
+readout.setFasticRegister(fasticNumber, 0x80, 0x01 << fasticChannel)
 
-# Enable only channel 0 in single ended mode
-readout.setFasticRegister(fasticNumber, 0x01, 0x01)
+# Set the TIME LSB to minimum
+readout.setFasticRegister(fasticNumber, 0x28, 0x04)
 
 # Set trigger to external
-readout.setFasticRegister(fasticNumber, 0x67, 0x30)
-readout.setFasticRegister(fasticNumber, 0x82, 0x29)
+#readout.setFasticRegister(fasticNumber, 0x67, 0x30)
+#readout.setFasticRegister(fasticNumber, 0x82, 0x29)
 
 # Enable energy pedestal suppression
-readout.setFasticRegister(fasticNumber, 0x60, 0xC7)
+#readout.setFasticRegister(fasticNumber, 0x60, 0xC7)
 
-# Enable injection pulse routing to channel 0
-readout.setFasticRegister(fasticNumber, 0x02, 0x01)
+treshold = 30
+readout.setFasticRegister(fasticNumber, 0x26, treshold | 0x80)
+        
+
+
 
 ###
 ### END CONFIGURATION - THE FOLLOWING LINES SHOULD NOT NEED TO BE CHANGED
@@ -90,7 +100,6 @@ time.sleep(1)
 # Disable HV voltage
 readout.setHvEnabled(False)
 
-
 # Get the Aurora packets from the stream
 bitstream.parseBitstream(FILENAMETS, FILENAME, False, [b'\x78'])
 
@@ -107,9 +116,13 @@ time_differences = []
 # Print the data packets into the console
 for index, packet in enumerate(fasticPackets):
     if isinstance(packet, dataPacket):
+        if not packet.parity_ok:
+            # Print only packets with wrong parity
+            print(index, packet)
+            pass
+        
         # If a non-trigger packet was found
         if packet.channel != 8:
-            print(packet)
             # Create the timestamp of the packet
             timestamp = packet.timestamp * ultraFastResolutionPs + packet.last_coarse_counter * coarseResolutionPs
             

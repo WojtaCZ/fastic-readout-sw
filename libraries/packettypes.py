@@ -20,6 +20,7 @@ class dataPacket:
         self.parity_ok = self.parity_channel_check and self.parity_pkt_type_check and self.parity_timestamp_check and self.parity_pulse_width_check and self.parity_all_check
         self.last_coarse_counter = last_coarse_counter
 
+
     def __str__(self):
         pkt_type_map = {
             0 : "PKT_TOA_TOTNL",

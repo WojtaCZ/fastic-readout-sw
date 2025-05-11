@@ -3,8 +3,12 @@ from bitstring import BitArray
 
 class separatorBlock:
     def __init__(self, descrambledData):
+
         self.validOctets = descrambledData[8:16].uint
-        self.data = descrambledData[(64 - self.validOctets*8):64]
+            
+        #self.data = descrambledData[(64 - self.validOctets*8):64]
+        
+        self.data = descrambledData[0:64]
 
     def __str__(self):
         return f"[SEPARATOR] Valid octets: {self.validOctets} Data: {self.data}"

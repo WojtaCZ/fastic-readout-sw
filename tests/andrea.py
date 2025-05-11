@@ -84,5 +84,5 @@ def parse_channels_data(hex_string):
 # Example usage
 #[DATA] Data: 0x7e320f127aa01a26
 #[SEPARATOR] Valid octets: 4 Data: 0x8312d101
-hex_input = "8312d1017e320f127aa01a26"
+hex_input = "7f4081f827281bb07efd2724f9407f7d272278c07f782717"
 parse_channels_data(hex_input)

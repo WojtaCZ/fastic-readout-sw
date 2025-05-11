@@ -7,16 +7,22 @@ import csv
 import datetime
 
 # Number of the fastic to be used
-fasticNumber = 1
+fasticNumber = 2
+
+# Number of the fastic channel to be used
+fasticChannel = 2
 
 # Bias voltage value (NOTE: The actual voltage on the userboard migth be about 0.2V lower than this setpoint)
-biasVoltage = 45
+biasVoltage = 56
+
+# Save as CSV file?
+saveCSV = False
 
 # Filename to be saved
 FILENAME = "capture" 
 
 # Add a timestamp to the filename
-FILENAME = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
+#FILENAME = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
 
 # Connect to the readout system
 try:
@@ -41,8 +47,22 @@ print()
 
 # Enable single ended positive polarity mode
 readout.setFasticRegister(fasticNumber, 0x00, 0x11)
-# Enable only channel 0 in single ended mode
-readout.setFasticRegister(fasticNumber, 0x01, 0x80)
+# Enable the selectec channel
+readout.setFasticRegister(fasticNumber, 0x01, 0x01 << fasticChannel)
+# Only enable readout for the selected channel
+readout.setFasticRegister(fasticNumber, 0x80, 0x01 << fasticChannel)
+# Disable trigger channel
+readout.setFasticRegister(fasticNumber, 0x82, 0x88)
+
+# Set the TIME LSB to minimum
+readout.setFasticRegister(fasticNumber, 0x28, 0x04)
+
+# Set TIME treshold to 60
+treshold = 60
+readout.setFasticRegister(fasticNumber, 0x26, 0x80 | treshold)
+
+# Max aurora data frame size
+readout.setFasticRegister(fasticNumber, 0xA2, 0x01, True)
 
 
 ###
@@ -61,14 +81,24 @@ readout.setHvEnabled(True)
 
 # Let it stabilize
 print(f"Waiting for the HV to stabilize...")
-time.sleep(5)
+
+time.sleep(2)
+
+voltage = readout.getHvVoltage()
+
+if voltage < biasVoltage - 0.5 or voltage > biasVoltage + 0.5:
+    print()
+    print(f"Voltage out of setpoin range: {voltage}")
+    print(f"Please check the connections and the voltage setting. Maybe the power supply is limitting the output due to overcurrent.")
+    print(f"Current: {readout.getHvCurrent()}uA")
+   # exit(1)
 
 print(f"HV Voltage: {readout.getHvVoltage()}V")
 print(f"HV Current: {readout.getHvCurrent()}uA")
 print()
 
 # Receive 1000kB of data
-readout.auroraReceive(fasticNumber, 1000*1000, FILENAME)
+readout.auroraReceive(fasticNumber, 1000*300, FILENAME)
 
 time.sleep(1)
 
@@ -93,18 +123,19 @@ for packet in fasticPackets:
         # Do nothing
         pass
         
-            
-# Save the packets to an CSV file
-with open(FILENAME + ".csv", mode='w', newline='') as csv_file:
-    csv_writer = csv.writer(csv_file)
-    
-    # Write the header row
-    csv_writer.writerow(["CoarseCounter", "Timestamp", "Channel", "Type", "PulseWidth", "Debug"])
-    
-    # Write packet data
-    for packet in fasticPackets:
-        if isinstance(packet, dataPacket):
-            csv_writer.writerow([packet.last_coarse_counter, packet.timestamp, packet.channel, packet.pkt_type, packet.pulse_width, packet.debug])
-       
 
+if saveCSV:      
+    # Save the packets to an CSV file
+    with open(FILENAME + ".csv", mode='w', newline='') as csv_file:
+        csv_writer = csv.writer(csv_file)
         
+        # Write the header row
+        csv_writer.writerow(["CoarseCounter", "Timestamp", "Channel", "Type", "PulseWidth", "Debug"])
+        
+        # Write packet data
+        for packet in fasticPackets:
+            if isinstance(packet, dataPacket):
+                csv_writer.writerow([packet.last_coarse_counter, packet.timestamp, packet.channel, packet.pkt_type, packet.pulse_width, packet.debug])
+        
+
+            
