@@ -145,11 +145,13 @@ for index, packet in enumerate(fasticPackets):
 print(f"Number of error packets: {errorPackets}, number of ok packets: {okPackets}")
 print("If the error counter is too high, consider increasing the treshold. The stream is probably saturated.")
 
-# Plot the histogram of time differences with x-axis limits
-plt.hist(delays, bins=400, color='blue', alpha=0.7)
+# Filter delays to keep only those between 0 and 200000
+filtered_delays = [delay for delay in delays if 0 <= delay <= 200000]
+
+# Plot the histogram of filtered time differences with x-axis limits
+plt.hist(filtered_delays, bins=150, color='blue', alpha=0.7)
 plt.title("Histogram of Time Differences")
 plt.xlabel("Time Difference (ps)")
 plt.ylabel("Frequency")
-plt.xlim(-0.5e6, 0.5e6)  # Limit x-axis to -1000ps and 1000ps
 plt.grid(True)
 plt.show()
