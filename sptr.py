@@ -20,10 +20,10 @@ biasVoltage = 56
 sampleSizeBytes = 1000*1000*3
 
 # Filename to be saved
-FILENAME = "sptr"
+FILENAME = "sptr" + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
 
 # Add a timestamp to the filename
-FILENAMETS = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
+#FILENAMETS = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
 #FILENAMETS = FILENAME
 
 
@@ -101,7 +101,7 @@ print(f"HV Current: {readout.getHvCurrent()}uA")
 print()
 
 # Receive 1000kB of data
-readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAMETS)
+readout.auroraReceive(fasticNumber, sampleSizeBytes, FILENAME)
 
 time.sleep(1)
 
@@ -109,7 +109,7 @@ time.sleep(1)
 readout.setHvEnabled(False)
 
 # Get the Aurora packets from the stream
-bitstream.parseBitstream(FILENAMETS, FILENAME, False, [b'\x78'])
+bitstream.parseBitstream(FILENAME, FILENAME, False, [b'\x78'])
 
 # Parse the Aurora packets into FastIC packets
 fasticPackets = fastic.parseAurora(FILENAME)
