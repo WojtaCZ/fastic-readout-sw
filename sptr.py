@@ -23,8 +23,8 @@ sampleSizeBytes = 1000*1000*3
 FILENAME = "sptr"
 
 # Add a timestamp to the filename
-#FILENAMETS = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
-FILENAMETS = FILENAME
+FILENAMETS = FILENAME + "-" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
+#FILENAMETS = FILENAME
 
 
 # Connect to the readout system
